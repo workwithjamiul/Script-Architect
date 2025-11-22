@@ -1,29 +1,36 @@
+
 import React, { useState } from 'react';
 import { Wizard } from './components/Wizard';
-import { Sparkles, Key, Plus, Trash2 } from 'lucide-react';
+import { ApiKeyManager } from './components/ApiKeyManager';
+import { ApiKeyConfig } from './types';
+import { Sparkles, Key } from 'lucide-react';
 
 function App() {
-  const [inputKey, setInputKey] = useState('');
-  const [apiKeys, setApiKeys] = useState<string[]>([]);
+  const [keys, setKeys] = useState<ApiKeyConfig[]>([]);
+  const [isKeyManagerOpen, setIsKeyManagerOpen] = useState(false);
 
-  const handleAddKey = () => {
-    if (inputKey.trim()) {
-      setApiKeys([...apiKeys, inputKey.trim()]);
-      setInputKey('');
+  const handleAddKey = (name: string, key: string) => {
+    const newKey: ApiKeyConfig = {
+      id: crypto.randomUUID(),
+      name,
+      key,
+      isEnabled: true
+    };
+    setKeys([...keys, newKey]);
+  };
+
+  const handleToggleKey = (id: string) => {
+    setKeys(keys.map(k => k.id === id ? { ...k, isEnabled: !k.isEnabled } : k));
+  };
+
+  const handleDeleteKey = (id: string) => {
+    if (confirm('Remove this API key?')) {
+      setKeys(keys.filter(k => k.id !== id));
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleAddKey();
-    }
-  };
-
-  const clearKeys = () => {
-    if (confirm('Are you sure you want to remove all API keys?')) {
-      setApiKeys([]);
-    }
-  };
+  // Extract only enabled keys as strings to pass to the application logic
+  const activeApiKeys = keys.filter(k => k.isEnabled).map(k => k.key);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-indigo-500 selection:text-white">
@@ -39,43 +46,34 @@ function App() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <div className="relative flex items-center">
-              <Key size={14} className="absolute left-3 text-gray-500" />
-              <input 
-                type="password" 
-                value={inputKey}
-                onChange={(e) => setInputKey(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Add Gemini API Key (Must)" 
-                className="bg-black/40 border border-white/10 rounded-l-full pl-9 pr-4 py-1.5 text-sm text-white w-48 focus:w-64 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all outline-none placeholder:text-gray-600"
-              />
-              <button 
-                onClick={handleAddKey}
-                disabled={!inputKey.trim()}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white px-3 py-1.5 rounded-r-full border-l border-white/10 transition-colors"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-            
-            {apiKeys.length > 0 && (
-              <div className="flex items-center gap-2 bg-green-900/30 border border-green-500/30 px-3 py-1.5 rounded-full">
-                <span className="text-xs text-green-400 font-medium whitespace-nowrap">
-                  {apiKeys.length} Key{apiKeys.length > 1 ? 's' : ''} Active
-                </span>
-                <button onClick={clearKeys} className="text-gray-400 hover:text-red-400 transition-colors">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            )}
-          </div>
+          <button 
+            onClick={() => setIsKeyManagerOpen(true)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+              activeApiKeys.length > 0 
+                ? 'bg-green-900/20 border-green-500/50 text-green-400 hover:bg-green-900/30' 
+                : 'bg-red-900/20 border-red-500/50 text-red-400 hover:bg-red-900/30'
+            }`}
+          >
+            <Key size={16} />
+            <span className="text-sm font-medium">
+              {activeApiKeys.length > 0 ? `${activeApiKeys.length} Keys Active` : 'Manage Keys'}
+            </span>
+          </button>
         </div>
       </header>
 
       <main>
-        <Wizard apiKeys={apiKeys} />
+        <Wizard apiKeys={activeApiKeys} />
       </main>
+
+      <ApiKeyManager 
+        isOpen={isKeyManagerOpen}
+        onClose={() => setIsKeyManagerOpen(false)}
+        keys={keys}
+        onAdd={handleAddKey}
+        onToggle={handleToggleKey}
+        onDelete={handleDeleteKey}
+      />
     </div>
   );
 }

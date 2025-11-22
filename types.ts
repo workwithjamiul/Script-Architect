@@ -1,3 +1,4 @@
+
 export interface ScriptData {
   topic: string;
   targetAudience: string;
@@ -27,6 +28,13 @@ export interface PackagingIdea {
   videoIdea: string; // The "Pain Point"
   expectations: string; // What viewers expect
   psychology: string; // Why this title/angle works
+}
+
+export interface ApiKeyConfig {
+  id: string;
+  name: string;
+  key: string;
+  isEnabled: boolean;
 }
 
 export enum AppStep {

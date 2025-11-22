@@ -75,9 +75,15 @@ export const StepPackaging: React.FC<Props> = ({ onComplete, initialTopic, initi
 
   const toggleAudienceLevel = (level: string) => {
     const current = audience.split(',').map(s => s.trim()).filter(s => s.length > 0);
-    if (current.includes(level)) {
-      setAudience(current.filter(s => s !== level).join(', '));
+    // Case insensitive check to avoid "beginner, Beginner"
+    const existingIndex = current.findIndex(s => s.toLowerCase() === level.toLowerCase());
+    
+    if (existingIndex >= 0) {
+      // Remove
+      const newAudience = current.filter((_, idx) => idx !== existingIndex);
+      setAudience(newAudience.join(', '));
     } else {
+      // Add
       setAudience([...current, level].join(', '));
     }
   };
@@ -110,22 +116,23 @@ export const StepPackaging: React.FC<Props> = ({ onComplete, initialTopic, initi
               type="text" 
               value={audience}
               onChange={(e) => setAudience(e.target.value)}
-              placeholder="e.g., Complete beginners"
+              placeholder="e.g., Content creators, Students"
               className="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
             />
             <div className="flex flex-wrap gap-2 mt-2">
               {AUDIENCE_LEVELS.map((level) => {
-                const isActive = audience.split(',').map(s => s.trim()).includes(level);
+                const isActive = audience.split(',').map(s => s.trim().toLowerCase()).includes(level.toLowerCase());
                 return (
                   <button
                     key={level}
                     onClick={() => toggleAudienceLevel(level)}
-                    className={`px-3 py-1 text-xs rounded-full border transition-all ${
+                    className={`px-3 py-1 text-xs rounded-full border transition-all font-medium ${
                       isActive 
-                        ? 'bg-indigo-600 border-indigo-500 text-white' 
-                        : 'bg-black/20 border-white/10 text-gray-400 hover:border-white/30 hover:text-white'
+                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/50' 
+                        : 'bg-black/20 border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/5'
                     }`}
                   >
+                    {isActive && <span className="mr-1">✓</span>}
                     {level}
                   </button>
                 );
