@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { PackagingIdea } from '../types';
 import { generatePackaging } from '../services/geminiService';
@@ -106,7 +107,7 @@ export const StepPackaging: React.FC<Props> = ({ onComplete, initialTopic, initi
               type="text" 
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g., How to learn coding fast"
+              placeholder="e.g., How to learn coding fast in 2025"
               className="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>

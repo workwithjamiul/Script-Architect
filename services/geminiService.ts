@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { PackagingIdea, OutlinePoint } from "../types";
+import { PackagingIdea, OutlinePoint, BlogIdea, BlogOutlineSection } from "../types";
 
 const BASE_SYSTEM_INSTRUCTION = `
 You are an expert YouTube script writer trained on the Kallaway 5-step framework.
@@ -28,6 +29,32 @@ Your responses should:
 When the user provides their video concept, help them through each phase systematically.
 `;
 
+const BLOG_SYSTEM_INSTRUCTION = `
+You are an elite SEO Content Writer who strictly adheres to "The Affiliate Lab" methodology for writing perfect blog posts.
+
+YOUR GOAL:
+Take a user-provided "Target Keyword" and generate a complete, high-ranking blog post that satisfies search intent immediately.
+
+YOU MUST FOLLOW THIS STRICT WRITING PROCESS:
+
+1.  **Analyze Intent:** Determine if the keyword is Informational (How-to/Guide) or Transactional (Best X for Y).
+2.  **Superset Outline:** Internally generate an outline that covers all potential sub-topics a competitor might have, plus an FAQ section based on "People Also Asked" style questions.
+3.  **Writing Style & Tone:**
+    * **Reading Level:** 7th-8th Grade (Simple, clear English).
+    * **Paragraphs:** Extremely short (1-2 sentences max). No walls of text.
+    * **NLP Optimization:** Define core concepts immediately using the format: "[Keyword] IS [Definition]."
+    * **No Fluff:** Do not waste time with generic intros. Start providing value immediately.
+
+4.  **Structure Requirements:**
+    * **Title:** Must include the keyword + a click element (Year, Number, or Emotional Hook).
+    * **Intro:** Hook the reader with Emotion (Fear of missing out, excitement, or direct value).
+    * **Body:** Use H2s for main points. Use Bullet points for lists. Suggest image placements with [Image Placeholder: Description].
+    * **Conclusion:** Summarize the post + Add a Call to Action (CTA).
+    * **Meta Data:** At the very end, provide a Meta Title and Meta Description (under 160 chars).
+
+5.  **Output Format:** Return the response in clean Markdown formatting.
+`;
+
 const getSystemInstruction = (language: string) => {
   return `${BASE_SYSTEM_INSTRUCTION}
   
@@ -35,6 +62,14 @@ const getSystemInstruction = (language: string) => {
   You MUST write all content in the following language: ${language}.
   `;
 };
+
+const getBlogSystemInstruction = (language: string) => {
+  return `${BLOG_SYSTEM_INSTRUCTION}
+  
+  IMPORTANT:
+  You MUST write all content in the following language: ${language}.
+  `;
+}
 
 const getAiClient = (apiKeyOrKeys?: string | string[]) => {
   const key = Array.isArray(apiKeyOrKeys) && apiKeyOrKeys.length > 0
@@ -48,6 +83,8 @@ const getAiClient = (apiKeyOrKeys?: string | string[]) => {
   return new GoogleGenAI({ apiKey: key });
 };
 
+// --- VIDEO SCRIPT FUNCTIONS ---
+
 export const generatePackaging = async (topic: string, audience: string, language: string, cta?: string, apiKey?: string | string[]): Promise<PackagingIdea[]> => {
   try {
     const ai = getAiClient(apiKey);
@@ -56,6 +93,7 @@ export const generatePackaging = async (topic: string, audience: string, languag
       contents: `I'm creating a YouTube video about ${topic}.
       Target Audience: ${audience}.
       ${cta ? `Goal: Promote ${cta}` : ''}
+      Current Context: The year is 2025.
 
       Help me develop 3 distinct packaging concepts. For each concept, define:
       1. VIDEO IDEA (one-line description of the pain point I'm solving)
@@ -103,6 +141,7 @@ export const generateOutline = async (topic: string, title: string, painPoint: s
       - Pain Point: ${painPoint}
       - Title: ${title}
       - Expected Viewer Expectations: ${expectations}
+      - Current Context: The year is 2025.
 
       Now help me create a UNIQUE OUTLINE by:
       1. BRAINSTORMING: List 7-10 potential points/tips for the body of my video
@@ -160,6 +199,7 @@ export const generateIntro = async (topic: string, title: string, expectations: 
       - Video Topic: ${topic}
       - Title: ${title}
       - Viewer Expectations from title: ${expectations}
+      - Current Year: 2025
       - Outline Points: 
       ${outlineSummary}
 
@@ -209,6 +249,7 @@ export const generateBody = async (title: string, intro: string, outline: Outlin
       VIDEO CONTEXT:
       - Title: ${title}
       - Intro: ${intro}
+      - Current Year: 2025
       - Outline Points: ${JSON.stringify(outline)}
       ${cta ? `- CTA Requirement: Integrate a native mention of "${cta}" where it fits naturally as a solution.` : ''}
 
@@ -272,6 +313,7 @@ export const generateOutro = async (title: string, painPoint: string, outline: O
       CONTEXT:
       - Video Title: ${title}
       - Main Pain Point: ${painPoint}
+      - Current Year: 2025
       - Key Points Covered: ${outline.map(p => p.headline).join(", ")}
 
       Write an outro that:
@@ -300,6 +342,183 @@ export const generateOutro = async (title: string, painPoint: string, outline: O
     return response.text || "";
   } catch (error) {
     console.error("Outro gen error", error);
+    throw error;
+  }
+};
+
+
+// --- BLOG GENERATOR FUNCTIONS ---
+
+export const generateBlogStrategy = async (topic: string, audience: string, tone: string, language: string, apiKey?: string | string[]): Promise<BlogIdea[]> => {
+  try {
+    const ai = getAiClient(apiKey);
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `I need to write a blog post about "${topic}".
+      Target Audience: ${audience}.
+      Desired Tone: ${tone}.
+      Current Context: The year is 2025.
+
+      Generate 3 distinct blog post strategies that satisfy search intent.
+      Analyze if the topic is Informational or Transactional.
+
+      For each strategy provide:
+      1. Catchy Title (SEO optimized + Clickworthy + includes Year (2025)/Number/Hook)
+      2. SEO Hook (Why this will rank & match intent)
+      3. 3-5 Target Keywords (Primary and LSI keywords)
+
+      Output strictly in ${language}.
+      `,
+      config: {
+        systemInstruction: getBlogSystemInstruction(language),
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              seoHook: { type: Type.STRING },
+              targetKeywords: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["title", "seoHook", "targetKeywords"]
+          }
+        }
+      }
+    });
+    return JSON.parse(response.text || "[]");
+  } catch (error) {
+    console.error("Blog strategy error", error);
+    throw error;
+  }
+};
+
+export const generateBlogOutline = async (title: string, keywords: string[], competitorContent: string[], language: string, apiKey?: string | string[]): Promise<BlogOutlineSection[]> => {
+  try {
+    const ai = getAiClient(apiKey);
+    const hasResearch = competitorContent.some(c => c.trim().length > 0);
+    
+    let prompt = `Create a "Superset Outline" for the blog post title: "${title}".
+    Target Keywords: ${keywords.join(", ")}.
+    Current Context: The year is 2025.`;
+
+    if (hasResearch) {
+      prompt += `\n\nCOMPETITOR RESEARCH (Top ranking content provided by user):
+      ${competitorContent.map((c, i) => c.trim() ? `--- Competitor ${i+1} ---\n${c.substring(0, 3000)}...` : '').join("\n")}
+      
+      INSTRUCTIONS:
+      1. Analyze the competitor content to identify all key topics they cover.
+      2. Create a comprehensive structure that covers EVERYTHING they cover, plus unique insights they missed.
+      `;
+    } else {
+      prompt += `\n\nRequirements:
+      - Cover all potential sub-topics a competitor might have.
+      `;
+    }
+
+    prompt += `
+    - **MUST INCLUDE** an FAQ section based on "People Also Asked" questions.
+    - Structure with Main Headings (H2) and bullet points.
+    
+    Output strictly in ${language}.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: getBlogSystemInstruction(language),
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              heading: { type: Type.STRING },
+              keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["id", "heading", "keyPoints"]
+          }
+        }
+      }
+    });
+    const raw = JSON.parse(response.text || "[]");
+    return raw.map((item: any, index: number) => ({ ...item, id: item.id || `section-${index}` }));
+  } catch (error) {
+    console.error("Blog outline error", error);
+    throw error;
+  }
+};
+
+export const generateBlogContent = async (title: string, outline: BlogOutlineSection[], language: string, apiKey?: string | string[]): Promise<string> => {
+  try {
+    const ai = getAiClient(apiKey);
+    const outlineStr = JSON.stringify(outline);
+    
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Write a complete, high-quality blog post based on this outline.
+      
+      Title: ${title}
+      Outline: ${outlineStr}
+      Current Context: The year is 2025.
+
+      STRICT WRITING GUIDELINES:
+      1. **Sentence Length:** Short. 1-2 sentences per paragraph maximum. No walls of text.
+      2. **Structure:** 
+         - Engaging Intro (Hook with emotion).
+         - Body paragraphs based on outline (H2s, bullets).
+         - Conclusion with CTA.
+         - **META DATA** section at the very end (Title & Description).
+      3. **Formatting:** Use Markdown. Include [Image Placeholder: Description] where relevant.
+      4. **NLP:** Define core keywords simply early on (e.g., "[Keyword] IS [Definition]").
+      
+      Output the full blog post in ${language}.
+      `,
+      config: {
+        systemInstruction: getBlogSystemInstruction(language),
+      }
+    });
+    return response.text || "";
+  } catch (error) {
+    console.error("Blog content error", error);
+    throw error;
+  }
+};
+
+export const generateBlogIntro = async (title: string, bodyContent: string, tone: string, language: string, apiKey?: string | string[]): Promise<string> => {
+  try {
+    const ai = getAiClient(apiKey);
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Write a PERFECT blog post introduction for the following article.
+      
+      TITLE: ${title}
+      
+      ARTICLE BODY (For context):
+      ${bodyContent.substring(0, 5000)}... (truncated for context)
+      
+      Current Context: The year is 2025.
+      Tone: ${tone}
+      
+      STRICT REQUIREMENTS (Affiliate Lab Style):
+      1. **Hook:** Start with an emotional hook (Fear, Excitement, FOMO) or a direct question.
+      2. **The "Good News":** Pivot to the solution immediately.
+      3. **Proof/Credibility:** Briefly mention why this advice works.
+      4. **The Plan:** bullet point what they will learn.
+      5. **Length:** Short, punchy paragraphs (1-2 sentences).
+      
+      Output ONLY the introduction text in Markdown. Do not include the title.
+      Write in ${language}.
+      `,
+      config: {
+        systemInstruction: getBlogSystemInstruction(language),
+      }
+    });
+    return response.text || "";
+  } catch (error) {
+    console.error("Blog intro error", error);
     throw error;
   }
 };

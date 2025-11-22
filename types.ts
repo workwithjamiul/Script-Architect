@@ -46,6 +46,40 @@ export enum AppStep {
   REVIEW = 5
 }
 
+// --- BLOG SPECIFIC TYPES ---
+
+export enum BlogStep {
+  STRATEGY = 0,
+  RESEARCH = 1,
+  OUTLINE = 2,
+  WRITING = 3,
+  RESULT = 4
+}
+
+export interface BlogData {
+  topic: string;
+  targetAudience: string;
+  tone: string;
+  language: string;
+  selectedTitle: string;
+  seoKeywords: string[];
+  competitorContent: string[]; // Array of competitor articles/outlines
+  outline: BlogOutlineSection[];
+  fullContent: string;
+}
+
+export interface BlogIdea {
+  title: string;
+  seoHook: string;
+  targetKeywords: string[];
+}
+
+export interface BlogOutlineSection {
+  id: string;
+  heading: string;
+  keyPoints: string[];
+}
+
 export interface GeminiResponse<T> {
   data?: T;
   error?: string;
