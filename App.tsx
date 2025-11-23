@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { Wizard } from './components/Wizard';
 import { BlogWizard } from './components/BlogWizard';
+import { History } from './components/History';
 import { ApiKeyManager } from './components/ApiKeyManager';
 import { ApiKeyConfig } from './types';
-import { Sparkles, Key, Video, PenTool } from 'lucide-react';
+import { Sparkles, Key, Video, PenTool, History as HistoryIcon } from 'lucide-react';
 
-type AppMode = 'script' | 'blog';
+type AppMode = 'script' | 'blog' | 'history';
 
 function App() {
   const [keys, setKeys] = useState<ApiKeyConfig[]>([]);
@@ -67,10 +68,10 @@ function App() {
           </div>
 
           {/* Mode Switcher Tabs */}
-          <div className="flex gap-6">
+          <div className="flex gap-6 overflow-x-auto">
             <button 
               onClick={() => setMode('script')}
-              className={`pb-3 px-2 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
+              className={`pb-3 px-2 text-sm font-medium border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                 mode === 'script' 
                   ? 'border-indigo-500 text-white' 
                   : 'border-transparent text-gray-500 hover:text-gray-300'
@@ -80,7 +81,7 @@ function App() {
             </button>
             <button 
               onClick={() => setMode('blog')}
-              className={`pb-3 px-2 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
+              className={`pb-3 px-2 text-sm font-medium border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                 mode === 'blog' 
                   ? 'border-green-500 text-white' 
                   : 'border-transparent text-gray-500 hover:text-gray-300'
@@ -88,16 +89,24 @@ function App() {
             >
               <PenTool size={16} /> Blog Generator
             </button>
+            <button 
+              onClick={() => setMode('history')}
+              className={`pb-3 px-2 text-sm font-medium border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                mode === 'history' 
+                  ? 'border-orange-500 text-white' 
+                  : 'border-transparent text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              <HistoryIcon size={16} /> History
+            </button>
           </div>
         </div>
       </header>
 
       <main>
-        {mode === 'script' ? (
-           <Wizard apiKeys={activeApiKeys} />
-        ) : (
-           <BlogWizard apiKeys={activeApiKeys} />
-        )}
+        {mode === 'script' && <Wizard apiKeys={activeApiKeys} />}
+        {mode === 'blog' && <BlogWizard apiKeys={activeApiKeys} />}
+        {mode === 'history' && <History />}
       </main>
 
       <ApiKeyManager 

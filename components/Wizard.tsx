@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
-import { AppStep, ScriptData, OutlinePoint } from '../types';
+import { AppStep, ScriptData, OutlinePoint, SavedScript } from '../types';
 import { StepPackaging } from './StepPackaging';
 import { StepOutline } from './StepOutline';
 import { ScriptResult } from './ScriptResult';
 import { generateIntro, generateBody, generateOutro } from '../services/geminiService';
-import { Check, PlayCircle, Layout, Type, Mic, Download } from 'lucide-react';
+import { Check, PlayCircle, Layout, Type, Mic, Download, FileText, Save, CheckCircle2 } from 'lucide-react';
 
 interface Props {
   apiKeys: string[];
@@ -31,6 +32,7 @@ export const Wizard: React.FC<Props> = ({ apiKeys }) => {
     body: false,
     outro: false
   });
+  const [savedToHistory, setSavedToHistory] = useState(false);
 
   const handlePackagingComplete = (title: string, thumb: string, topic: string, audience: string, cta: string, idea: string, expectations: string, language: string) => {
     setData(prev => ({ 
@@ -98,8 +100,8 @@ export const Wizard: React.FC<Props> = ({ apiKeys }) => {
     }
   };
 
-  const handleExport = () => {
-    const fullScript = `TITLE: ${data.selectedTitle}
+  const getFullScriptContent = () => {
+    return `TITLE: ${data.selectedTitle}
 TOPIC: ${data.topic}
 TARGET AUDIENCE: ${data.targetAudience}
 ${data.cta ? `CTA: ${data.cta}` : ''}
@@ -113,12 +115,86 @@ ${data.bodyScript}
 === PART 3: OUTRO ===
 ${data.outroScript}
 `;
+  };
 
+  const handleSaveToHistory = () => {
+    if (savedToHistory) return;
+    
+    const newScript: SavedScript = {
+      id: crypto.randomUUID(),
+      title: data.selectedTitle,
+      topic: data.topic,
+      audience: data.targetAudience,
+      content: getFullScriptContent(),
+      date: new Date().toISOString()
+    };
+
+    const existing = JSON.parse(localStorage.getItem('script_history') || '[]');
+    localStorage.setItem('script_history', JSON.stringify([newScript, ...existing]));
+    setSavedToHistory(true);
+  };
+
+  const handleExport = () => {
+    const fullScript = getFullScriptContent();
     const blob = new Blob([fullScript], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `${data.selectedTitle.replace(/[^a-z0-9]/gi, '_').substring(0, 50) || 'script'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportDoc = () => {
+    const formatContent = (text: string) => {
+      return text
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/\*\*(.*?)\*\*/gim, '<b>$1</b>')
+        .replace(/\*(.*?)\*/gim, '<i>$1</i>')
+        .replace(/\n/gim, '<br>');
+    };
+
+    const htmlBody = `
+      <h1>${data.selectedTitle}</h1>
+      <p><b>Topic:</b> ${data.topic}</p>
+      <p><b>Target Audience:</b> ${data.targetAudience}</p>
+      ${data.cta ? `<p><b>CTA:</b> ${data.cta}</p>` : ''}
+      <hr>
+      <h2>Phase 3: The Hook (Intro)</h2>
+      ${formatContent(data.introScript)}
+      <hr>
+      <h2>Phase 4: The Body</h2>
+      ${formatContent(data.bodyScript)}
+      <hr>
+      <h2>Phase 5: The Outro</h2>
+      ${formatContent(data.outroScript)}
+    `;
+
+    const html = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>${data.selectedTitle}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; }
+          h1 { font-size: 24px; color: #333; }
+          h2 { font-size: 18px; color: #444; margin-top: 20px; background-color: #f0f0f0; padding: 5px; }
+          h3 { font-size: 16px; color: #666; margin-top: 15px; }
+          p { margin-bottom: 10px; }
+        </style>
+      </head>
+      <body>${htmlBody}</body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.selectedTitle.replace(/[^a-z0-9]/gi, '_').substring(0, 50) || 'script'}.doc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -201,13 +277,34 @@ ${data.outroScript}
                  </div>
                </div>
                
-               <button 
-                 onClick={handleExport}
-                 disabled={isGenerating}
-                 className="flex items-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10"
-               >
-                 <Download size={16} /> Export as Text
-               </button>
+               <div className="flex items-center gap-3 flex-wrap">
+                 <button 
+                    onClick={handleSaveToHistory} 
+                    disabled={isGenerating || savedToHistory} 
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      savedToHistory 
+                        ? 'bg-green-900/50 text-green-300 border-green-500/30 cursor-default' 
+                        : 'bg-green-900/30 hover:bg-green-900/50 text-green-300 border-green-500/30'
+                    }`}
+                 >
+                    {savedToHistory ? <CheckCircle2 size={16} /> : <Save size={16} />} {savedToHistory ? 'Saved' : 'Save'}
+                 </button>
+
+                 <button 
+                   onClick={handleExport}
+                   disabled={isGenerating}
+                   className="flex items-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-white/10"
+                 >
+                   <FileText size={16} /> Text
+                 </button>
+                 <button 
+                   onClick={handleExportDoc}
+                   disabled={isGenerating}
+                   className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-indigo-900/20"
+                 >
+                   <Download size={16} /> DOCX
+                 </button>
+               </div>
             </div>
             
             <div className="grid lg:grid-cols-3 gap-6">

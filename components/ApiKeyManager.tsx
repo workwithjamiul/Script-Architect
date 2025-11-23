@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ApiKeyConfig } from '../types';
-import { X, Plus, Trash2, Power, Key, ShieldCheck } from 'lucide-react';
+import { X, Plus, Trash2, Power, Key, ShieldCheck, ExternalLink } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -54,9 +54,19 @@ export const ApiKeyManager: React.FC<Props> = ({ isOpen, onClose, keys, onAdd, o
           
           {/* Add New Key */}
           <div className="bg-black/40 border border-white/10 rounded-xl p-4">
-            <h3 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
-              <Plus size={16} className="text-indigo-400" /> Add New Key
-            </h3>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-bold text-gray-300 flex items-center gap-2">
+                <Plus size={16} className="text-indigo-400" /> Add New Key
+              </h3>
+              <a 
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs bg-white/5 hover:bg-white/10 text-indigo-400 px-3 py-1.5 rounded-full transition-colors border border-white/5"
+              >
+                Get API Key <ExternalLink size={12} />
+              </a>
+            </div>
             <div className="flex flex-col md:flex-row gap-3">
               <input 
                 type="text"

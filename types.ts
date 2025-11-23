@@ -80,6 +80,24 @@ export interface BlogOutlineSection {
   keyPoints: string[];
 }
 
+export interface SavedBlog {
+  id: string;
+  title: string;
+  topic: string;
+  content: string;
+  date: string; // ISO string
+  audience: string;
+}
+
+export interface SavedScript {
+  id: string;
+  title: string;
+  topic: string;
+  content: string;
+  date: string;
+  audience: string;
+}
+
 export interface GeminiResponse<T> {
   data?: T;
   error?: string;

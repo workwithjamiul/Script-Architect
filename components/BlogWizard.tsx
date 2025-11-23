@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { BlogData, BlogStep, BlogIdea, BlogOutlineSection } from '../types';
-import { generateBlogStrategy, generateBlogOutline, generateBlogContent, generateBlogIntro } from '../services/geminiService';
-import { PenTool, Loader2, CheckCircle2, FileText, ArrowRight, Download, RefreshCw, Search, ChevronRight, Trash2, Sparkles } from 'lucide-react';
+import { BlogData, BlogStep, BlogIdea, BlogOutlineSection, SavedBlog } from '../types';
+import { generateBlogStrategy, generateBlogOutline, generateBlogContent, generateBlogIntro, generateAudienceSuggestions } from '../services/geminiService';
+import { PenTool, Loader2, CheckCircle2, FileText, ArrowRight, Download, RefreshCw, Search, ChevronRight, Trash2, Sparkles, Save } from 'lucide-react';
 import { ScriptResult } from './ScriptResult';
 
 interface Props {
@@ -40,6 +40,9 @@ export const BlogWizard: React.FC<Props> = ({ apiKeys }) => {
   const [ideas, setIdeas] = useState<BlogIdea[]>([]);
   const [selectedIdeaIdx, setSelectedIdeaIdx] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [audienceSuggestions, setAudienceSuggestions] = useState<string[]>([]);
+  const [isSuggestingAudience, setIsSuggestingAudience] = useState(false);
+  const [savedToHistory, setSavedToHistory] = useState(false);
 
   // --- STEP 1: STRATEGY ---
   const handleGenerateIdeas = async () => {
@@ -56,6 +59,19 @@ export const BlogWizard: React.FC<Props> = ({ apiKeys }) => {
       alert("Failed to generate blog ideas.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSuggestAudience = async () => {
+    if (!data.topic || apiKeys.length === 0) return;
+    setIsSuggestingAudience(true);
+    try {
+        const suggestions = await generateAudienceSuggestions(data.topic, data.language, apiKeys);
+        setAudienceSuggestions(suggestions);
+    } catch(e) {
+        console.error(e);
+    } finally {
+        setIsSuggestingAudience(false);
     }
   };
 
@@ -107,6 +123,7 @@ export const BlogWizard: React.FC<Props> = ({ apiKeys }) => {
     try {
       const content = await generateBlogContent(data.selectedTitle, data.outline, data.language, apiKeys);
       setData(prev => ({ ...prev, fullContent: content }));
+      setSavedToHistory(false); // Reset save state
     } catch (e) {
       alert("Failed to write article.");
     } finally {
@@ -147,12 +164,30 @@ export const BlogWizard: React.FC<Props> = ({ apiKeys }) => {
       
       const newFullContent = `${existingTitle}\n\n${newIntro.trim()}\n\n${bodyContent}`;
       setData(prev => ({ ...prev, fullContent: newFullContent }));
+      setSavedToHistory(false); // content changed
       
     } catch(e) {
       alert("Failed to regenerate intro.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSaveToHistory = () => {
+    if (savedToHistory) return;
+    
+    const newBlog: SavedBlog = {
+      id: crypto.randomUUID(),
+      title: data.selectedTitle,
+      topic: data.topic,
+      audience: data.targetAudience,
+      content: data.fullContent,
+      date: new Date().toISOString()
+    };
+
+    const existingHistory = JSON.parse(localStorage.getItem('blog_history') || '[]');
+    localStorage.setItem('blog_history', JSON.stringify([newBlog, ...existingHistory]));
+    setSavedToHistory(true);
   };
 
   // --- EXPORTS ---
@@ -290,7 +325,17 @@ export const BlogWizard: React.FC<Props> = ({ apiKeys }) => {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Target Audience</label>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium text-gray-300">Target Audience</label>
+                        <button 
+                            onClick={handleSuggestAudience}
+                            disabled={!data.topic || isSuggestingAudience || apiKeys.length === 0}
+                            className="text-xs text-green-400 hover:text-green-300 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSuggestingAudience ? <Loader2 size={12} className="animate-spin"/> : <Sparkles size={12}/>}
+                            {isSuggestingAudience ? 'Thinking...' : 'Auto-Suggest'}
+                        </button>
+                    </div>
                     <input 
                         type="text" 
                         value={data.targetAudience}
@@ -298,6 +343,19 @@ export const BlogWizard: React.FC<Props> = ({ apiKeys }) => {
                         placeholder="e.g., Software Engineers, Remote Workers"
                         className="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-green-500 outline-none"
                     />
+                    {audienceSuggestions.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2 animate-in fade-in slide-in-from-top-1">
+                            {audienceSuggestions.map((suggestion, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setData({...data, targetAudience: suggestion})}
+                                    className="px-3 py-1 text-xs rounded-full bg-green-900/20 border border-green-500/30 text-green-300 hover:bg-green-900/40 transition-colors"
+                                >
+                                    {suggestion}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Tone of Voice</label>
@@ -428,7 +486,7 @@ export const BlogWizard: React.FC<Props> = ({ apiKeys }) => {
                 <div className="flex items-center gap-3">
                    <button 
                       onClick={handleExportOutlineDoc} 
-                      className="flex items-center gap-2 bg-blue-900/30 hover:bg-blue-900/50 text-blue-300 px-3 py-2 rounded-lg text-xs font-medium border border-blue-500/30 transition-colors"
+                      className="flex items-center gap-2 bg-green-900/30 hover:bg-green-900/50 text-green-300 px-3 py-2 rounded-lg text-xs font-medium border border-green-500/30 transition-colors"
                    >
                       <Download size={14} /> Export Outline (DOCX)
                    </button>
@@ -472,18 +530,21 @@ export const BlogWizard: React.FC<Props> = ({ apiKeys }) => {
             <div className="flex flex-wrap justify-between items-center gap-4">
                 <h3 className="text-xl font-bold text-white">Final Article</h3>
                 <div className="flex gap-2 flex-wrap">
-                    <button onClick={() => setStep(BlogStep.OUTLINE)} className="text-sm text-gray-400 hover:text-white px-3">Back to Outline</button>
+                    <button onClick={() => setStep(BlogStep.OUTLINE)} className="text-sm text-gray-400 hover:text-white px-3">Back</button>
+                    
                     <button onClick={handleRegenerateIntro} disabled={isLoading} className="flex items-center gap-1 bg-indigo-900/30 hover:bg-indigo-900/50 text-indigo-300 px-3 py-2 rounded-lg text-sm font-medium border border-indigo-500/30 transition-colors">
-                       {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Regenerate Intro
+                       {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Intro
                     </button>
-                    <button onClick={handleGenerateContent} disabled={isLoading} className="text-sm flex items-center gap-1 text-gray-400 hover:text-white px-3">
-                        <RefreshCw size={14} /> Rewrite All
+                    
+                    <button onClick={handleSaveToHistory} disabled={isLoading || savedToHistory} className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${savedToHistory ? 'bg-orange-900/50 text-orange-300 border-orange-500/30 cursor-default' : 'bg-orange-900/30 hover:bg-orange-900/50 text-orange-300 border-orange-500/30'}`}>
+                        {savedToHistory ? <CheckCircle2 size={14} /> : <Save size={14} />} {savedToHistory ? 'Saved' : 'Save'}
                     </button>
+
                     <button onClick={handleExportTxt} disabled={isLoading} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium border border-white/10 transition-colors">
-                        <FileText size={16} /> Export Text
+                        <FileText size={16} /> TXT
                     </button>
-                    <button onClick={handleExportDoc} disabled={isLoading} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
-                        <Download size={16} /> Export Docx
+                    <button onClick={handleExportDoc} disabled={isLoading} className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-lg shadow-green-900/20">
+                        <Download size={16} /> DOCX
                     </button>
                 </div>
             </div>

@@ -49,8 +49,13 @@ YOU MUST FOLLOW THIS STRICT WRITING PROCESS:
     * **Title:** Must include the keyword + a click element (Year, Number, or Emotional Hook).
     * **Intro:** Hook the reader with Emotion (Fear of missing out, excitement, or direct value).
     * **Body:** Use H2s for main points. Use Bullet points for lists. Suggest image placements with [Image Placeholder: Description].
-    * **Conclusion:** Summarize the post + Add a Call to Action (CTA).
-    * **Meta Data:** At the very end, provide a Meta Title and Meta Description (under 160 chars).
+    * **Tables:** **MANDATORY:** Use well-formatted Markdown Tables for the following:
+        *   **Comparisons (A vs B):** Columns must be [Feature | Option A | Option B].
+        *   **Pros & Cons:** Columns must be [Pros | Cons].
+        *   **Pricing/Plans:** Columns must be [Plan Name | Price | Key Features].
+        *   Ensure tables are strictly aligned and easy to read in raw text.
+    *   **Conclusion:** Summarize the post + Add a Call to Action (CTA).
+    *   **Meta Data:** At the very end, provide a Meta Title and Meta Description (under 160 chars).
 
 5.  **Output Format:** Return the response in clean Markdown formatting.
 `;
@@ -83,6 +88,62 @@ const getAiClient = (apiKeyOrKeys?: string | string[]) => {
   return new GoogleGenAI({ apiKey: key });
 };
 
+// --- HELPER FUNCTIONS ---
+
+const cleanAndParseJSON = (text: string) => {
+  try {
+    // Remove markdown code blocks
+    let clean = text.replace(/```json\n?|\n?```/g, "");
+    
+    // Find the first [ or {
+    const firstBracket = clean.indexOf('[');
+    const firstBrace = clean.indexOf('{');
+    const start = (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) ? firstBracket : firstBrace;
+    
+    if (start !== -1) {
+      clean = clean.substring(start);
+    }
+    
+    // Find the last ] or }
+    const lastBracket = clean.lastIndexOf(']');
+    const lastBrace = clean.lastIndexOf('}');
+    const end = (lastBracket !== -1 && (lastBrace === -1 || lastBracket > lastBrace)) ? lastBracket : lastBrace;
+    
+    if (end !== -1) {
+      clean = clean.substring(0, end + 1);
+    }
+    
+    return JSON.parse(clean);
+  } catch (e) {
+    console.error("Failed to parse JSON", text);
+    return [];
+  }
+};
+
+const extractSources = (response: any): string => {
+  const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (!chunks || !Array.isArray(chunks) || chunks.length === 0) return '';
+  
+  // Extract unique URLs
+  const uniqueSources = new Map<string, string>();
+  
+  chunks.forEach((c: any) => {
+    if (c.web?.uri) {
+      const title = c.web.title || new URL(c.web.uri).hostname;
+      uniqueSources.set(c.web.uri, title);
+    }
+  });
+
+  if (uniqueSources.size === 0) return '';
+  
+  let sourceText = "\n\n### Sources & References\n";
+  uniqueSources.forEach((title, uri) => {
+    sourceText += `- [${title}](${uri})\n`;
+  });
+  
+  return sourceText;
+};
+
 // --- VIDEO SCRIPT FUNCTIONS ---
 
 export const generatePackaging = async (topic: string, audience: string, language: string, cta?: string, apiKey?: string | string[]): Promise<PackagingIdea[]> => {
@@ -93,7 +154,7 @@ export const generatePackaging = async (topic: string, audience: string, languag
       contents: `I'm creating a YouTube video about ${topic}.
       Target Audience: ${audience}.
       ${cta ? `Goal: Promote ${cta}` : ''}
-      Current Context: The year is 2025.
+      Current Context: The year is 2025. Use Google Search to find current trends.
 
       Help me develop 3 distinct packaging concepts. For each concept, define:
       1. VIDEO IDEA (one-line description of the pain point I'm solving)
@@ -103,28 +164,22 @@ export const generatePackaging = async (topic: string, audience: string, languag
       
       For the title, ensure it triggers a curiosity loop.
       Ensure the output content (Title, Video Idea, etc) is in ${language}.
+      
+      RETURN THE OUTPUT AS A RAW JSON ARRAY. Each object must have these exact properties:
+      - title (string)
+      - thumbnail (string)
+      - videoIdea (string)
+      - expectations (string)
+      - psychology (string)
       `,
       config: {
         systemInstruction: getSystemInstruction(language),
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING, description: "Curiosity-driven title" },
-              thumbnail: { type: Type.STRING, description: "Visual concept elements" },
-              videoIdea: { type: Type.STRING, description: "Pain point being solved" },
-              expectations: { type: Type.STRING, description: "What viewers expect from this title" },
-              psychology: { type: Type.STRING, description: "Why this specific angle triggers curiosity" }
-            },
-            required: ["title", "thumbnail", "videoIdea", "expectations", "psychology"]
-          }
-        }
+        tools: [{ googleSearch: {} }] // Enabled Grounding
+        // responseSchema removed because it conflicts with googleSearch tool
       }
     });
     
-    return JSON.parse(response.text || "[]");
+    return cleanAndParseJSON(response.text || "[]");
   } catch (error) {
     console.error("Packaging gen error", error);
     throw error;
@@ -144,7 +199,7 @@ export const generateOutline = async (topic: string, title: string, painPoint: s
       - Current Context: The year is 2025.
 
       Now help me create a UNIQUE OUTLINE by:
-      1. BRAINSTORMING: List 7-10 potential points/tips for the body of my video
+      1. BRAINSTORMING: List 7-10 potential points/tips for the body of my video. Use Google Search to find novel angles.
       2. GUT-CHECK: For each point, tell me if it's unique/novel or generic
       3. ELIMINATE: Remove any generic or commonly repeated points
       4. RESEARCH: Suggest unique angles I haven't considered
@@ -156,30 +211,21 @@ export const generateOutline = async (topic: string, title: string, painPoint: s
       CRITICAL: If the outline feels generic, suggest more research angles instead of proceeding with mediocre points.
       Ensure all points are written in ${language}.
       
-      Return the final 4-6 points in the specified JSON format.
+      RETURN THE FINAL 4-6 POINTS AS A RAW JSON ARRAY. Each object must have these exact properties:
+      - id (string)
+      - headline (string)
+      - what (string)
+      - why (string)
+      - how (string)
       `,
       config: {
         systemInstruction: getSystemInstruction(language),
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              id: { type: Type.STRING },
-              headline: { type: Type.STRING, description: "The unique angle/point name" },
-              what: { type: Type.STRING, description: "What is this point/concept?" },
-              why: { type: Type.STRING, description: "Why does it matter? (Psychology)" },
-              how: { type: Type.STRING, description: "How does it fit/Actionable step" }
-            },
-            required: ["id", "headline", "what", "why", "how"]
-          }
-        }
+        tools: [{ googleSearch: {} }] // Enabled Grounding
       }
     });
 
-    const raw = JSON.parse(response.text || "[]");
-    return raw.map((item: any, index: number) => ({ ...item, id: item.id || `point-${index}` }));
+    const parsed = cleanAndParseJSON(response.text || "[]");
+    return parsed.map((item: any, index: number) => ({ ...item, id: item.id || `point-${index}` }));
   } catch (error) {
     console.error("Outline gen error", error);
     throw error;
@@ -230,6 +276,7 @@ export const generateIntro = async (topic: string, title: string, expectations: 
       `,
       config: {
         systemInstruction: getSystemInstruction(language),
+        tools: [{ googleSearch: {} }] // Enabled for context awareness
       }
     });
     return response.text || "";
@@ -270,6 +317,7 @@ export const generateBody = async (title: string, intro: string, outline: Outlin
       - Explain clearly and simply
       - Keep digestible
       - Provide foundational understanding
+      - Use Google Search to find real-world examples or recent stats.
 
       **Application** (Say how to do it)
       - Explain how to apply the concept
@@ -294,9 +342,14 @@ export const generateBody = async (title: string, intro: string, outline: Outlin
       `,
       config: {
         systemInstruction: getSystemInstruction(language),
+        tools: [{ googleSearch: {} }] // Enabled for facts and examples
       }
     });
-    return response.text || "";
+    
+    // Append sources if available
+    const sources = extractSources(response);
+    return (response.text || "") + sources;
+    
   } catch (error) {
     console.error("Body gen error", error);
     throw error;
@@ -337,6 +390,7 @@ export const generateOutro = async (title: string, painPoint: string, outline: O
       `,
       config: {
         systemInstruction: getSystemInstruction(language),
+        tools: [{ googleSearch: {} }]
       }
     });
     return response.text || "";
@@ -349,6 +403,30 @@ export const generateOutro = async (title: string, painPoint: string, outline: O
 
 // --- BLOG GENERATOR FUNCTIONS ---
 
+export const generateAudienceSuggestions = async (topic: string, language: string, apiKey?: string | string[]): Promise<string[]> => {
+  try {
+    const ai = getAiClient(apiKey);
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `I am planning a blog post about "${topic}".
+      Current Context: The year is 2025.
+      
+      Suggest 5 distinct, specific target audiences who would be interested in this content.
+      Keep them concise (2-4 words max).
+      
+      Output strictly in ${language}.
+      RETURN ONLY A RAW JSON ARRAY of strings. Example: ["Beginners", "Expert Developers", "Small Business Owners"]`,
+      config: {
+         systemInstruction: getBlogSystemInstruction(language),
+      }
+    });
+    return cleanAndParseJSON(response.text || "[]");
+  } catch (error) {
+    console.error("Audience suggestion error", error);
+    return [];
+  }
+};
+
 export const generateBlogStrategy = async (topic: string, audience: string, tone: string, language: string, apiKey?: string | string[]): Promise<BlogIdea[]> => {
   try {
     const ai = getAiClient(apiKey);
@@ -358,6 +436,8 @@ export const generateBlogStrategy = async (topic: string, audience: string, tone
       Target Audience: ${audience}.
       Desired Tone: ${tone}.
       Current Context: The year is 2025.
+      
+      Use Google Search to analyze current search results and intent for this topic.
 
       Generate 3 distinct blog post strategies that satisfy search intent.
       Analyze if the topic is Informational or Transactional.
@@ -368,25 +448,19 @@ export const generateBlogStrategy = async (topic: string, audience: string, tone
       3. 3-5 Target Keywords (Primary and LSI keywords)
 
       Output strictly in ${language}.
+      
+      RETURN THE OUTPUT AS A RAW JSON ARRAY. Each object must have:
+      - title (string)
+      - seoHook (string)
+      - targetKeywords (string array)
       `,
       config: {
         systemInstruction: getBlogSystemInstruction(language),
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              seoHook: { type: Type.STRING },
-              targetKeywords: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["title", "seoHook", "targetKeywords"]
-          }
-        }
+        tools: [{ googleSearch: {} }] // Enabled for SEO analysis
       }
     });
-    return JSON.parse(response.text || "[]");
+    
+    return cleanAndParseJSON(response.text || "[]");
   } catch (error) {
     console.error("Blog strategy error", error);
     throw error;
@@ -400,7 +474,10 @@ export const generateBlogOutline = async (title: string, keywords: string[], com
     
     let prompt = `Create a "Superset Outline" for the blog post title: "${title}".
     Target Keywords: ${keywords.join(", ")}.
-    Current Context: The year is 2025.`;
+    Current Context: The year is 2025.
+    
+    Use Google Search to find "People Also Asked" questions and sub-topics missed by competitors.
+    `;
 
     if (hasResearch) {
       prompt += `\n\nCOMPETITOR RESEARCH (Top ranking content provided by user):
@@ -421,6 +498,11 @@ export const generateBlogOutline = async (title: string, keywords: string[], com
     - Structure with Main Headings (H2) and bullet points.
     
     Output strictly in ${language}.
+    
+    RETURN THE OUTPUT AS A RAW JSON ARRAY. Each object must have:
+    - id (string)
+    - heading (string)
+    - keyPoints (string array)
     `;
 
     const response = await ai.models.generateContent({
@@ -428,23 +510,12 @@ export const generateBlogOutline = async (title: string, keywords: string[], com
       contents: prompt,
       config: {
         systemInstruction: getBlogSystemInstruction(language),
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              id: { type: Type.STRING },
-              heading: { type: Type.STRING },
-              keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["id", "heading", "keyPoints"]
-          }
-        }
+        tools: [{ googleSearch: {} }] // Enabled for Superset analysis
       }
     });
-    const raw = JSON.parse(response.text || "[]");
-    return raw.map((item: any, index: number) => ({ ...item, id: item.id || `section-${index}` }));
+    
+    const parsed = cleanAndParseJSON(response.text || "[]");
+    return parsed.map((item: any, index: number) => ({ ...item, id: item.id || `section-${index}` }));
   } catch (error) {
     console.error("Blog outline error", error);
     throw error;
@@ -463,6 +534,8 @@ export const generateBlogContent = async (title: string, outline: BlogOutlineSec
       Title: ${title}
       Outline: ${outlineStr}
       Current Context: The year is 2025.
+      
+      Use Google Search to verify facts, find recent statistics, and ensure content is up-to-date.
 
       STRICT WRITING GUIDELINES:
       1. **Sentence Length:** Short. 1-2 sentences per paragraph maximum. No walls of text.
@@ -472,15 +545,29 @@ export const generateBlogContent = async (title: string, outline: BlogOutlineSec
          - Conclusion with CTA.
          - **META DATA** section at the very end (Title & Description).
       3. **Formatting:** Use Markdown. Include [Image Placeholder: Description] where relevant.
-      4. **NLP:** Define core keywords simply early on (e.g., "[Keyword] IS [Definition]").
+      4. **Tables:** MANDATORY: Use well-formatted Markdown Tables for:
+         - **Comparisons:** Columns: [Feature | Option A | Option B]
+         - **Pros & Cons:** Columns: [Pros | Cons]
+         - **Pricing:** Columns: [Plan | Price | Key Features]
+         Ensure tables are readable and alignment is correct.
+      5. **NLP:** Define core keywords simply early on (e.g., "[Keyword] IS [Definition]").
+      6. **FAQ SCHEMA:** At the very bottom of the response, generate valid JSON-LD Schema markup for \`FAQPage\` based on the FAQ section of the article. Wrap it in a \`\`\`json code block.
       
+      **SEO & KEYWORD OPTIMIZATION (CRITICAL):**
+      - **Keyword Density:** Maintain a strict keyword density of **1.5% to 2%** for the primary keyword. Do not go below or above this range.
+      - **Semantic SEO:** Naturally weave in LSI keywords and secondary keywords found via Google Search or provided in the strategy phase.
+      - **Placement:** Ensure keywords appear naturally in the H1, Introduction, Conclusion, and distributed throughout H2s and body text. **DO NOT SPAM**; they must fit the context perfectly.
+
       Output the full blog post in ${language}.
       `,
       config: {
         systemInstruction: getBlogSystemInstruction(language),
+        tools: [{ googleSearch: {} }] // Enabled for factual accuracy
       }
     });
-    return response.text || "";
+    
+    const sources = extractSources(response);
+    return (response.text || "") + sources;
   } catch (error) {
     console.error("Blog content error", error);
     throw error;
@@ -514,6 +601,7 @@ export const generateBlogIntro = async (title: string, bodyContent: string, tone
       `,
       config: {
         systemInstruction: getBlogSystemInstruction(language),
+        tools: [{ googleSearch: {} }] // Enabled for context
       }
     });
     return response.text || "";
