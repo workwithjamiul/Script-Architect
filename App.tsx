@@ -42,13 +42,16 @@ function App() {
       <header className="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 pt-4 pb-0 flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-2 rounded-lg">
-                <Sparkles size={20} className="text-white" />
+            <div className="flex items-center gap-3">
+              {/* Retina-style Logo */}
+              <div className="relative flex items-center justify-center w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl shadow-lg shadow-indigo-900/20 border border-white/10 ring-1 ring-white/5 overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <Sparkles className="text-white w-6 h-6 drop-shadow-md" strokeWidth={2} />
               </div>
+              
               <div>
-                <h1 className="text-lg font-bold leading-none tracking-tight">Content Architect</h1>
-                <p className="text-[10px] text-gray-400 font-medium tracking-widest uppercase">AI Content Generator</p>
+                <h1 className="text-xl font-bold leading-none tracking-tight text-white drop-shadow-sm">Content Architect</h1>
+                <p className="text-[11px] text-indigo-400 font-bold tracking-widest uppercase mt-1">Viral Scripts & Ranking Blogs</p>
               </div>
             </div>
             
