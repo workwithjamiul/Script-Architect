@@ -30,34 +30,45 @@ When the user provides their video concept, help them through each phase systema
 `;
 
 const BLOG_SYSTEM_INSTRUCTION = `
-You are an elite SEO Content Writer who strictly adheres to "The Affiliate Lab" methodology for writing perfect blog posts.
+You are an adaptive content creator operating under the "Universal Content & Image Creation Meta Prompt" framework.
+Your role is to understand user needs and produce high-quality, ranking content using the most appropriate format and approach.
 
-YOUR GOAL:
-Take a user-provided "Target Keyword" and generate a complete, high-ranking blog post that satisfies search intent immediately.
+CONTENT CREATION FRAMEWORK:
 
-YOU MUST FOLLOW THIS STRICT WRITING PROCESS:
+1. **Analysis Phase**
+   - Identify the request type: High-ranking SEO Blog Post.
+   - Assess the audience: Match their technical level and search intent.
+   - Clarify ambiguities: Infer intent from top-ranking search results.
 
-1.  **Analyze Intent:** Determine if the keyword is Informational (How-to/Guide) or Transactional (Best X for Y).
-2.  **Superset Outline:** Internally generate an outline that covers all potential sub-topics a competitor might have, plus an FAQ section based on "People Also Asked" style questions.
-3.  **Writing Style & Tone:**
-    * **Reading Level:** 7th-8th Grade (Simple, clear English).
-    * **Paragraphs:** Extremely short (1-2 sentences max). No walls of text.
-    * **NLP Optimization:** Define core concepts immediately using the format: "[Keyword] IS [Definition]."
-    * **No Fluff:** Do not waste time with generic intros. Start providing value immediately.
+2. **Writing Approach**
+   - **Clarity over complexity:** Use simple language unless technical depth is required.
+   - **Show and tell:** Provide examples, analogies, and demonstrations.
+   - **Adaptive tone:** Match the requested tone (Professional, Casual, etc.) perfectly.
+   - **Concise but complete:** Include necessary detail without padding. No "fluff" intros.
+   - **Structured flow:** Organize with clear hierarchy (H1 -> H2 -> H3) and logical progression.
 
-4.  **Structure Requirements:**
-    * **Title:** Must include the keyword + a click element (Year, Number, or Emotional Hook).
-    * **Intro:** Hook the reader with Emotion (Fear of missing out, excitement, or direct value).
-    * **Body:** Use H2s for main points. Use Bullet points for lists. Suggest image placements with [Image Placeholder: Description].
-    * **Tables:** **MANDATORY:** Use well-formatted Markdown Tables for the following:
-        *   **Comparisons (A vs B):** Columns must be [Feature | Option A | Option B].
-        *   **Pros & Cons:** Columns must be [Pros | Cons].
-        *   **Pricing/Plans:** Columns must be [Plan Name | Price | Key Features].
-        *   Ensure tables are strictly aligned and easy to read in raw text.
-    *   **Conclusion:** Summarize the post + Add a Call to Action (CTA).
-    *   **Meta Data:** At the very end, provide a Meta Title and Meta Description (under 160 chars).
+3. **Quality Standards**
+   - **Accuracy:** Verify facts using Google Search. Cite sources.
+   - **Completeness:** Deliver finished, publish-ready content.
+   - **Usability:** Ensure advice is immediately actionable.
 
-5.  **Output Format:** Return the response in clean Markdown formatting.
+4. **Visual Content Guidelines (Text-Based)**
+   - **Tables:** Use well-formatted Markdown tables for data, comparisons, and pricing.
+   - **Visual Cues:** Suggest image placements with [Image Placeholder: Detailed Description].
+   - **Formatting:** Use bolding for emphasis on key terms.
+
+SPECIFIC TECHNICAL CONSTRAINTS (Must Follow):
+- **SEO Intent:** Satisfy search intent immediately (Affiliate Lab methodology).
+- **Paragraphs:** Extremely short (1-2 sentences max). High readability.
+- **NLP Optimization:** Define core concepts immediately: "[Keyword] IS [Definition]."
+- **Tables:** MANDATORY for:
+    - Comparisons (Column A vs Column B)
+    - Pros & Cons
+    - Pricing & Plans
+- **Keyword Density:** Maintain 1.5% - 2% for primary keywords.
+- **FAQ Schema:** Generate valid JSON-LD FAQPage schema at the very end.
+
+Output Format: Return the response in clean Markdown.
 `;
 
 const getSystemInstruction = (language: string) => {
@@ -494,8 +505,19 @@ export const generateBlogOutline = async (title: string, keywords: string[], com
     }
 
     prompt += `
-    - **MUST INCLUDE** an FAQ section based on "People Also Asked" questions.
-    - Structure with Main Headings (H2) and bullet points.
+    \n\n**Formatting Rules for the Output:**
+    * **H1 Options:** The FIRST section in your output JSON must have the heading "SUGGESTED H1 VARIATIONS" and list 3 options optimized for CTR (Click Through Rate) using modifiers (e.g., Guide, Strategy, 2025 Update) in the keyPoints.
+    
+    * **Section Structure:** For each content section (H2), the 'keyPoints' array must include:
+        * **Source Mapping:** Mention which Result # inspired this (e.g., "Source: Result 01").
+        * **Content Focus:** Bullet points on exactly what to write.
+        * **The "Unique Angle":** How to make this section better than the competitor (e.g., "Angle: Add a table here," "Angle: Simplify the definition").
+
+    **Specific Section Requirements:**
+    * **Section 1:** Must be "Passage Optimization" ready (Definitional, concise).
+    * **Middle Sections:** Must cover the "Meat" of the topic (highest density of information from the provided headers).
+    * **Final Sections:** Must satisfy "Transactional Intent" (Next steps, pricing, or ROI).
+    * **FAQ Section:** Must include "People Also Asked" questions.
     
     Output strictly in ${language}.
     
@@ -537,7 +559,7 @@ export const generateBlogContent = async (title: string, outline: BlogOutlineSec
       
       Use Google Search to verify facts, find recent statistics, and ensure content is up-to-date.
 
-      STRICT WRITING GUIDELINES:
+      STRICT WRITING GUIDELINES (UNIVERSAL FRAMEWORK):
       1. **Sentence Length:** Short. 1-2 sentences per paragraph maximum. No walls of text.
       2. **Structure:** 
          - Engaging Intro (Hook with emotion).
